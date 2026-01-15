@@ -1,0 +1,35 @@
+# YOLO Detection Configuration
+# This file contains default parameters for the YOLO object detection ROS node
+
+# Camera Configuration
+camera_topic: "/camera/color/image_raw"
+camera_frame: "camera_color_optical_frame"
+
+# YOLO Model Configuration
+# Uncomment the YOLO version you want to use (corresponds to compile-time selection)
+# YOLO versions: 5, 7, 8, 9, 10, 11, 12
+model_path: "models/yolo11n.onnx"  # Default: YOLOv11 nano
+labels_path: "models/coco.names"
+
+# Processing Configuration
+isGPU: true                    # Use GPU for inference if available
+enable_detection: true         # Enable/disable object detection
+processing_rate: 30.0          # Processing rate in Hz
+
+# Detection Parameters (these would be set in the YOLO detector)
+# confidence_threshold: 0.25   # Minimum confidence for detections
+# nms_threshold: 0.45          # Non-maximum suppression threshold
+# max_detections: 100          # Maximum number of detections per frame
+
+# ROS Configuration
+queue_size: 10                 # ROS subscriber queue size
+
+# Camera to ARM transformation (same as gesture_detection)
+camera_to_arm_translation: [0.3391445173213441, 0.16158612387789312, -0.036710996800156034]  # Translation vector [x, y, z] in meters
+camera_to_arm_rotation: [[-0.9683492, 0.24959585, -0.00131968],                          # Rotation matrix (3x3) - transposed
+                         [-0.03955044, -0.15865874, -0.98654101],
+                         [-0.24644592, -0.955264, 0.16350869]]
+
+# Debug Configuration
+publish_debug_image: true      # Publish debug images with bounding boxes
+publish_status: true          # Publish status messages

@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="namespace" default="yolo_detection" />
+  <arg name="camera_topic" default="/camera/color/image_raw" />
+  <arg name="model_path" default="$(find yolos_cpp)/models/yolo11n.onnx" />
+  <arg name="labels_path" default="$(find yolos_cpp)/models/coco.names" />
+  <arg name="is_gpu" default="true" />
+  <arg name="enable_detection" default="true" />
+  <arg name="processing_rate" default="30.0" />
+
+  <!-- YOLO Detection Node -->
+  <node name="$(arg namespace)_node" pkg="yolos_cpp" type="yolos_cpp_node" output="screen">
+
+    <!-- Camera Configuration -->
+    <param name="camera_topic" value="$(arg camera_topic)" />
+    <param name="camera_frame" value="camera_color_optical_frame" />
+
+    <!-- YOLO Model Configuration -->
+    <param name="model_path" value="$(arg model_path)" />
+    <param name="labels_path" value="$(arg labels_path)" />
+    <param name="isGPU" value="$(arg is_gpu)" />
+
+    <!-- Processing Configuration -->
+    <param name="enable_detection" value="$(arg enable_detection)" />
+    <param name="processing_rate" value="$(arg processing_rate)" />
+
+    <!-- Camera to ARM transformation parameters (same as gesture_detection) -->
+    <rosparam param="camera_to_arm_translation">[0.3391445173213441, 0.16158612387789312, -0.036710996800156034]</rosparam>
+    <rosparam param="camera_to_arm_rotation">[[-0.9683492, 0.24959585, -0.00131968], [-0.03955044, -0.15865874, -0.98654101], [-0.24644592, -0.955264, 0.16350869]]</rosparam>
+
+    <!-- ROS Configuration -->
+    <param name="queue_size" value="10" />
+
+  </node>
+
+  <!-- Optional: RViz for visualization -->
+  <!--
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find yolos_cpp)/config/yolo_detection.rviz" />
+  -->
+
+</launch>

@@ -1,59 +1,60 @@
 /**
  * @file camera_inference.cpp
- * @brief Real-time object detection using YOLO models (v5, v7, v8, v9, v10, v11, v12) with camera input.
- * 
- * This file serves as the main entry point for a real-time object detection 
- * application that utilizes YOLO (You Only Look Once) models, specifically 
- * versions 5, 7, 8, 9, 10, 11 and 12. The application captures video frames from a 
- * specified camera device, processes those frames to detect objects, and 
- * displays the results with bounding boxes around detected objects.
+ * @brief ROS-based real-time object detection using YOLO models (v5, v7, v8, v9, v10, v11, v12) with camera input.
  *
- * The program operates in a multi-threaded environment, featuring the following 
- * threads:
- * 1. **Producer Thread**: Responsible for capturing frames from the video source 
- *    and enqueuing them into a thread-safe bounded queue for subsequent processing.
- * 2. **Consumer Thread**: Dequeues frames from the producer's queue, executes 
- *    object detection using the specified YOLO model, and enqueues the processed 
- *    frames along with detection results into another thread-safe bounded queue.
- * 3. **Display Thread**: Dequeues processed frames from the consumer's queue, 
- *    draws bounding boxes around detected objects, and displays the frames to the 
- *    user.
+ * This file serves as the main entry point for a ROS node that performs real-time object detection
+ * using YOLO (You Only Look Once) models, specifically versions 5, 7, 8, 9, 10, 11 and 12.
+ * The node subscribes to ROS camera topics, processes frames to detect objects, and
+ * publishes detection results as ROS messages.
  *
- * Configuration parameters can be adjusted to suit specific requirements:
- * - `isGPU`: Set to true to enable GPU processing for improved performance; 
- *   set to false for CPU processing.
- * - `labelsPath`: Path to the class labels file (e.g., COCO dataset).
- * - `modelPath`: Path to the desired YOLO model file (e.g., ONNX format).
- * - `videoSource`: Path to the video capture device (e.g., camera).
+ * The program operates in a ROS environment, featuring the following components:
+ * 1. **ROS Subscriber**: Subscribes to camera image topics using image_transport
+ * 2. **YOLO Detector**: Processes images using the specified YOLO model for object detection
+ * 3. **ROS Publishers**: Publishes detection results, bounding boxes, and debug images
+ * 4. **Service Interface**: Provides services to enable/disable detection and configure parameters
  *
- * The application employs a double buffering technique by maintaining two bounded 
- * queues to efficiently manage the flow of frames between the producer and 
- * consumer threads. This setup helps prevent processing delays due to slow frame 
- * capture or detection times.
+ * Configuration parameters can be adjusted via ROS parameters:
+ * - `isGPU`: Set to true to enable GPU processing for improved performance
+ * - `labelsPath`: Path to the class labels file (e.g., COCO dataset)
+ * - `modelPath`: Path to the desired YOLO model file (e.g., ONNX format)
+ * - `enable_detection`: Enable/disable object detection
+ * - `processing_rate`: Rate at which to process images (Hz)
  *
- * Debugging messages can be enabled by defining the `DEBUG_MODE` macro, allowing 
- * developers to trace the execution flow and internal state of the application 
+ * Debugging messages can be enabled by defining the `DEBUG_MODE` macro, allowing
+ * developers to trace the execution flow and internal state of the application
  * during runtime.
  *
  * Usage Instructions:
- * 1. Compile the application with the necessary OpenCV and YOLO dependencies.
- * 2. Run the executable to initiate the object detection process.
- * 3. Press 'q' to quit the application at any time.
+ * 1. Launch the ROS node with appropriate parameters
+ * 2. Subscribe to published topics for detection results
+ * 3. Use services to control detection behavior
  *
- * @note Ensure that the required model files and labels are present in the 
+ * @note Ensure that the required model files and labels are present in the
  * specified paths before running the application.
  *
- * Author: Abdalrahman M. Amer, www.linkedin.com/in/abdalrahman-m-amer
+ * Modified for ROS integration based on gesture_detection pattern
+ * Original Author: Abdalrahman M. Amer, www.linkedin.com/in/abdalrahman-m-amer
+ * ROS Integration: Following gesture_detection structure
  * Date: 29.09.2024
  */
 
+
+#include <ros/ros.h>
+#include <sensor_msgs/Image.h>
+#include <vision_msgs/Detection2DArray.h>
+#include <vision_msgs/Detection2D.h>
+#include <vision_msgs/ObjectHypothesisWithPose.h>
+#include <std_srvs/SetBool.h>
+#include <std_msgs/String.h>
+#include <image_transport/image_transport.h>
+#include <cv_bridge/cv_bridge.h>
+#include <signal.h>
 
 #include <iostream>
 #include <vector>
 #include <thread>
 #include <atomic>
-
-#include <opencv2/highgui/highgui.hpp>
+#include <mutex>
 
 // Uncomment the version
 //#define YOLO5
@@ -86,9 +87,17 @@
     #include "det/YOLO12.hpp"
 #endif
 
-
 // Include the bounded queue
 #include "tools/BoundedThreadSafeQueue.hpp"
+
+// Global flag for graceful shutdown
+volatile bool g_running = true;
+
+void signalHandler(int signal) {
+    ROS_INFO("Received signal %d, initiating shutdown...", signal);
+    g_running = false;
+    ros::shutdown();
+}
 
 int main()
 {
